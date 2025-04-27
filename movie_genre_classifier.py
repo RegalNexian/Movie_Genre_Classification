@@ -12,15 +12,21 @@ import seaborn as sns
 
 # Set paths
 dataset_folder = os.path.join('D:\\Projects\\Movie_Genre_Classification\\Dataset\\Genre Classification Dataset')
-
-# Create a try-except block to handle file not found errors
-try:
-
 # Load the dataset
 # Assuming there's a CSV file with movie data in the dataset folder
 # Adjust the filename as needed based on your actual dataset
-data_file = os.path.join(dataset_folder, 'train_data.txt')
-df = pd.read_csv(data_file, sep=':::', engine='python', header=None, names=['id', 'title', 'genre', 'plot'])
+# Load the training and test datasets
+train_data_file = os.path.join(dataset_folder, 'train_data.txt')
+test_data_file = os.path.join(dataset_folder, 'test_data.txt')
+df_train = pd.read_csv(train_data_file, sep=':::', engine='python', header=None, names=['id', 'title', 'genre', 'plot'])
+df_test = pd.read_csv(test_data_file, sep=':::', engine='python', header=None, names=['id', 'title', 'plot'])
+
+# Preprocess the training data
+X_train = df_train['plot'].fillna('')
+y_train = df_train['genre'].fillna('')
+
+# Preprocess the test data
+X_test = df_test['plot'].fillna('')
 
 # Display basic information about the dataset
 print("Dataset Information:")
@@ -156,10 +162,3 @@ print(f"Sample plot: {sample_plot}")
 print(f"Predicted genre (Random Forest): {predict_genre(sample_plot, rf_model, tfidf)}")
 print(f"Predicted genre (Logistic Regression): {predict_genre(sample_plot, lr_model, tfidf)}")
 
-except FileNotFoundError as e:
-    print(f"Error: File not found - {e}")
-    print("Please ensure the dataset files exist in the specified location.")
-except Exception as e:
-    print(f"An unexpected error occurred: {e}")
-    import traceback
-    traceback.print_exc()
