@@ -13,6 +13,9 @@ import seaborn as sns
 # Set paths
 dataset_folder = os.path.join('D:\\Projects\\Movie_Genre_Classification\\Dataset\\Genre Classification Dataset')
 
+# Create a try-except block to handle file not found errors
+try:
+
 # Load the dataset
 # Assuming there's a CSV file with movie data in the dataset folder
 # Adjust the filename as needed based on your actual dataset
@@ -33,9 +36,20 @@ print(df.head())
 X = df['plot'].fillna('')  # Replace with your text column name
 y = df['genre'].fillna('')  # Replace with your genre column name
 
-# If genres are in a different format (e.g., comma-separated), process them
-# For example, if genres are like "Action, Adventure, Sci-Fi"
-# You might need to use MultiLabelBinarizer
+# Check if genres are multi-label (comma-separated)
+if y.str.contains(',').any():
+    print("Detected multi-label genres. Processing with MultiLabelBinarizer...")
+    from sklearn.preprocessing import MultiLabelBinarizer
+    mlb = MultiLabelBinarizer()
+    # Split genres by comma and strip whitespace
+    y_multilabel = y.str.split(',').apply(lambda x: [genre.strip() for genre in x])
+    y = mlb.fit_transform(y_multilabel)
+    # Use OneVsRestClassifier for multi-label classification
+    rf_model = OneVsRestClassifier(RandomForestClassifier(n_estimators=100, random_state=42))
+    lr_model = OneVsRestClassifier(LogisticRegression(max_iter=1000, random_state=42))
+    print(f"Processed {len(mlb.classes_)} unique genre labels")
+else:
+    print("Using single-label genre classification")
 
 # Split the data
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -47,17 +61,34 @@ X_test_tfidf = tfidf.transform(X_test)
 
 # Train Random Forest model
 print("\nTraining Random Forest model...")
-print("Progress: ", end="")
-rf_model = RandomForestClassifier(n_estimators=100, random_state=42, verbose=1)
-rf_model.fit(X_train_tfidf, y_train)
-print("Done!")
+from tqdm import tqdm
+try:
+    # Use tqdm for better progress tracking if available
+    with tqdm(total=100, desc="RF Progress") as pbar:
+        rf_model = RandomForestClassifier(n_estimators=100, random_state=42, verbose=0)
+        rf_model.fit(X_train_tfidf, y_train)
+        pbar.update(100)
+except ImportError:
+    # Fallback if tqdm is not installed
+    print("Training... ", end="")
+    rf_model = RandomForestClassifier(n_estimators=100, random_state=42, verbose=1)
+    rf_model.fit(X_train_tfidf, y_train)
+    print("Done!")
 
 # Train Logistic Regression model
 print("\nTraining Logistic Regression model...")
-print("Progress: ", end="")
-lr_model = LogisticRegression(max_iter=1000, random_state=42, verbose=1)
-lr_model.fit(X_train_tfidf, y_train)
-print("Done!")
+try:
+    # Use tqdm for better progress tracking if available
+    with tqdm(total=100, desc="LR Progress") as pbar:
+        lr_model = LogisticRegression(max_iter=1000, random_state=42, verbose=0)
+        lr_model.fit(X_train_tfidf, y_train)
+        pbar.update(100)
+except ImportError:
+    # Fallback if tqdm is not installed
+    print("Training... ", end="")
+    lr_model = LogisticRegression(max_iter=1000, random_state=42, verbose=1)
+    lr_model.fit(X_train_tfidf, y_train)
+    print("Done!")
 
 # Evaluate models
 def evaluate_model(model, X, y, model_name):
@@ -96,13 +127,18 @@ plt.close()
 
 # Save models
 import pickle
-with open(os.path.join('d:\\Projects\\Movie_Genre_Classification\\random_forest_model.pkl'), 'wb') as f:
+
+# Define a consistent output directory
+output_dir = os.path.join('d:', 'Projects', 'Movie_Genre_Classification')
+
+# Use consistent path joining for all model files
+with open(os.path.join(output_dir, 'random_forest_model.pkl'), 'wb') as f:
     pickle.dump(rf_model, f)
     
-with open(os.path.join('d:', 'Projects', 'Movie_Genre_Classification', 'logistic_regression_model.pkl'), 'wb') as f:
+with open(os.path.join(output_dir, 'logistic_regression_model.pkl'), 'wb') as f:
     pickle.dump(lr_model, f)
 
-with open(os.path.join('d:', 'Projects', 'Movie_Genre_Classification', 'tfidf_vectorizer.pkl'), 'wb') as f:
+with open(os.path.join(output_dir, 'tfidf_vectorizer.pkl'), 'wb') as f:
     pickle.dump(tfidf, f)
 
 print("\nModels saved successfully!")
@@ -119,3 +155,11 @@ sample_plot = "A group of astronauts travel through a wormhole in search of a ne
 print(f"Sample plot: {sample_plot}")
 print(f"Predicted genre (Random Forest): {predict_genre(sample_plot, rf_model, tfidf)}")
 print(f"Predicted genre (Logistic Regression): {predict_genre(sample_plot, lr_model, tfidf)}")
+
+except FileNotFoundError as e:
+    print(f"Error: File not found - {e}")
+    print("Please ensure the dataset files exist in the specified location.")
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+    import traceback
+    traceback.print_exc()
